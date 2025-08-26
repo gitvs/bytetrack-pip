@@ -48,19 +48,19 @@ def linear_assignment(cost_matrix, thresh):
     return matches, unmatched_a, unmatched_b
 
 
-def ious(atlbrs, btlbrs):
+def ious(altrbs, bltrbs):
     """
     Compute cost based on IoU
-    :type atlbrs: list[tlbr] | np.ndarray
-    :type atlbrs: list[tlbr] | np.ndarray
+    :type altrbs: list[ltrb] | np.ndarray
+    :type altrbs: list[ltrb] | np.ndarray
 
     :rtype ious np.ndarray
     """
-    ious = np.zeros((len(atlbrs), len(btlbrs)), dtype=np.float32)
+    ious = np.zeros((len(altrbs), len(bltrbs)), dtype=np.float32)
     if ious.size == 0:
         return ious
 
-    ious = bbox_ious(np.ascontiguousarray(atlbrs, dtype=np.float32), np.ascontiguousarray(btlbrs, dtype=np.float32))
+    ious = bbox_ious(np.ascontiguousarray(altrbs, dtype=np.float32), np.ascontiguousarray(bltrbs, dtype=np.float32))
 
     return ious
 
@@ -77,12 +77,12 @@ def iou_distance(atracks, btracks):
     if (len(atracks) > 0 and isinstance(atracks[0], np.ndarray)) or (
         len(btracks) > 0 and isinstance(btracks[0], np.ndarray)
     ):
-        atlbrs = atracks
-        btlbrs = btracks
+        altrbs = atracks
+        bltrbs = btracks
     else:
-        atlbrs = [track.tlbr for track in atracks]
-        btlbrs = [track.tlbr for track in btracks]
-    _ious = ious(atlbrs, btlbrs)
+        altrbs = [track.ltrb for track in atracks]
+        bltrbs = [track.ltrb for track in btracks]
+    _ious = ious(altrbs, bltrbs)
     cost_matrix = 1 - _ious
 
     return cost_matrix
@@ -100,12 +100,12 @@ def v_iou_distance(atracks, btracks):
     if (len(atracks) > 0 and isinstance(atracks[0], np.ndarray)) or (
         len(btracks) > 0 and isinstance(btracks[0], np.ndarray)
     ):
-        atlbrs = atracks
-        btlbrs = btracks
+        altrbs = atracks
+        bltrbs = btracks
     else:
-        atlbrs = [track.tlwh_to_tlbr(track.pred_bbox) for track in atracks]
-        btlbrs = [track.tlwh_to_tlbr(track.pred_bbox) for track in btracks]
-    _ious = ious(atlbrs, btlbrs)
+        altrbs = [track.ltwh_to_ltrb(track.pred_bbox) for track in atracks]
+        bltrbs = [track.ltwh_to_ltrb(track.pred_bbox) for track in btracks]
+    _ious = ious(altrbs, bltrbs)
     cost_matrix = 1 - _ious
 
     return cost_matrix

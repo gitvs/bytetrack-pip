@@ -41,13 +41,24 @@ def xyxy2ltwh(x):
     y[:, 3] = x[:, 3] - x[:, 1]  # height
     return y
 
+def ltwh2xyxy(x):
+    # Convert nx4 boxes from [x1, y1, x2, y2] to [x, y, w, h] where xy1=top-left, xy2=bottom-right
+    try:
+        y = x.clone()
+    except:
+        y = np.copy(x)
+    y[:, 0] = x[:, 0] # top
+    y[:, 1] = x[:, 1]   # left
+    y[:, 2] = x[:, 2] + x[:, 0]  # right
+    y[:, 3] = x[:, 3] + x[:, 1]  # bottom
+    return y
 
 class STrack(BaseTrack):
     shared_kalman = KalmanFilter()
 
-    def __init__(self, tlwh, score, cls):
+    def __init__(self, ltwh, score, cls):
         # wait activate
-        self._tlwh = np.asarray(tlwh, dtype=float)
+        self._ltwh = np.asarray(ltwh, dtype=float)
         self.kalman_filter = None
         self.mean, self.covariance = None, None
         self.is_activated = False
@@ -84,7 +95,7 @@ class STrack(BaseTrack):
         self.kalman_filter = kalman_filter
         self.track_id = self.next_id()
         self.mean, self.covariance = self.kalman_filter.initiate(
-            self.tlwh_to_xyah(self._tlwh)
+            self.ltwh_to_xyah(self._ltwh)
         )
 
         self.tracklet_len = 0
@@ -97,7 +108,7 @@ class STrack(BaseTrack):
 
     def re_activate(self, new_track, frame_id, new_id=False):
         self.mean, self.covariance = self.kalman_filter.update(
-            self.mean, self.covariance, self.tlwh_to_xyah(new_track.tlwh)
+            self.mean, self.covariance, self.ltwh_to_xyah(new_track.ltwh)
         )
         self.tracklet_len = 0
         self.state = TrackState.Tracked
@@ -120,9 +131,9 @@ class STrack(BaseTrack):
         self.tracklet_len += 1
         # self.cls = cls
 
-        new_tlwh = new_track.tlwh
+        new_ltwh = new_track.ltwh
         self.mean, self.covariance = self.kalman_filter.update(
-            self.mean, self.covariance, self.tlwh_to_xyah(new_tlwh)
+            self.mean, self.covariance, self.ltwh_to_xyah(new_ltwh)
         )
         self.state = TrackState.Tracked
         self.is_activated = True
@@ -131,12 +142,12 @@ class STrack(BaseTrack):
 
     @property
     # @jit(nopython=True)
-    def tlwh(self):
+    def ltwh(self):
         """Get current position in bounding box format `(top left x, top left y,
         width, height)`.
         """
         if self.mean is None:
-            return self._tlwh.copy()
+            return self._ltwh.copy()
         ret = self.mean[:4].copy()
         ret[2] *= ret[3]
         ret[:2] -= ret[2:] / 2
@@ -144,39 +155,39 @@ class STrack(BaseTrack):
 
     @property
     # @jit(nopython=True)
-    def tlbr(self):
+    def ltrb(self):
         """Convert bounding box to format `(min x, min y, max x, max y)`, i.e.,
         `(top left, bottom right)`.
         """
-        ret = self.tlwh.copy()
+        ret = self.ltwh.copy()
         ret[2:] += ret[:2]
         return ret
 
     @staticmethod
     # @jit(nopython=True)
-    def tlwh_to_xyah(tlwh):
+    def ltwh_to_xyah(ltwh):
         """Convert bounding box to format `(center x, center y, aspect ratio,
         height)`, where the aspect ratio is `width / height`.
         """
-        ret = np.asarray(tlwh).copy()
+        ret = np.asarray(ltwh).copy()
         ret[:2] += ret[2:] / 2
         ret[2] /= ret[3]
         return ret
 
     def to_xyah(self):
-        return self.tlwh_to_xyah(self.tlwh)
+        return self.ltwh_to_xyah(self.ltwh)
 
     @staticmethod
     # @jit(nopython=True)
-    def tlbr_to_tlwh(tlbr):
-        ret = np.asarray(tlbr).copy()
+    def ltrb_to_ltwh(ltrb):
+        ret = np.asarray(ltrb).copy()
         ret[2:] -= ret[:2]
         return ret
 
     @staticmethod
     # @jit(nopython=True)
-    def tlwh_to_tlbr(tlwh):
-        ret = np.asarray(tlwh).copy()
+    def ltwh_to_ltrb(ltwh):
+        ret = np.asarray(ltwh).copy()
         ret[2:] += ret[:2]
         return ret
 
@@ -366,10 +377,11 @@ class BYTETracker(object):
         outputs = []
         for t in output_stracks:
             output = []
-            tlwh = t.tlwh
+            ltwh = t.ltwh
             tid = t.track_id
-            tlwh = np.expand_dims(tlwh, axis=0)
-            xyxy = xywh2xyxy(tlwh)
+            ltwh = np.expand_dims(ltwh, axis=0)
+            # xyxy = xywh2xyxy(ltwh)
+            xyxy = ltwh2xyxy(ltwh)
             xyxy = np.squeeze(xyxy, axis=0)
             output.extend(xyxy)
             output.append(tid)
